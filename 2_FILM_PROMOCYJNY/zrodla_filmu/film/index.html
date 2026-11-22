@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Ogarniacz film</title>
+<style>
+:root{--tlo:#F6F3EF;--ink:#1d1a17;--szary:#6f6862;--linia:#e7e1da;--ak:#F2683A;--ak2:#FF9A5A;--akc:#c94d22;--akj:#fff0e8;--wys:#e5484d;--sre:#f5a524;--nis:#46a758;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--tlo);font-family:"SF Pro Display",-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+#bg,#world,#hud,#thr{position:absolute;left:0;top:0;width:1920px;height:1080px}
+#bg{overflow:hidden}
+.pool{position:absolute;border-radius:50%;width:1400px;height:1400px;}
+#world{transform-origin:0 0}
+.ab{position:absolute;left:0;top:0}
+.card{position:absolute;left:0;top:0;overflow:hidden;background:#fff;border:1px solid var(--linia)}
+.fill{position:absolute;inset:0}
+.stripe{position:absolute;left:0;top:0;bottom:0;width:8px}
+.in{position:absolute;white-space:nowrap}
+.row .t{font-size:25px;font-weight:650;letter-spacing:-.01em}
+.chip{display:inline-block;font-size:17px;font-weight:600;padding:3px 11px;border-radius:99px;background:var(--linia);color:var(--szary);margin-right:8px}
+.chip.tag{background:var(--akj);color:var(--akc)}
+.chip.zal{background:#fde8e8;color:var(--wys)}
+.chip.dz{background:var(--akj);color:var(--akc)}
+.badge{position:absolute;right:18px;top:24px;font-size:20px;font-weight:700;color:#fff;background:var(--ak);border-radius:12px;padding:6px 12px}
+.cap{position:absolute;left:0;top:0;font-weight:700;letter-spacing:-.025em;white-space:nowrap}
+.cap em{font-style:normal;color:var(--ak)}
+.mono{font-family:"SF Mono",Menlo,monospace}
+.cur{position:absolute;left:0;top:0;width:0;height:0}
+.cur .pill{position:absolute;left:22px;top:26px;font-size:17px;font-weight:700;color:#fff;padding:4px 11px;border-radius:99px;white-space:nowrap}
+.rip{position:absolute;left:0;top:0;border-radius:50%;border:3px solid var(--ak)}
+.tile{position:absolute;background:var(--tlo);border-radius:12px;border-left:5px solid var(--sre);padding:10px 10px 0 12px;overflow:hidden}
+.tile b{display:block;font-size:17.5px;line-height:1.2;font-weight:650;white-space:normal}
+.tile small{display:block;font-size:14px;color:var(--szary);margin-top:4px}
+.step{position:absolute;background:#fff;border:1px solid var(--linia);border-radius:18px;overflow:hidden}
+</style></head><body>
+<div id="bg"><div class="pool" id="pool1"></div><div class="pool" id="pool2"></div></div>
+<div id="world"></div>
+<canvas id="thr" width="1920" height="1080"></canvas>
+<div id="hud"></div>
+<script>
+// ───────── core: springs, tracks, vis ─────────
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+function stepR(tau,{w,z}){if(tau<=0)return 0;if(z>=1){const x=w*tau;return 1-Math.exp(-x)*(1+x);}const wd=w*Math.sqrt(1-z*z);return 1-Math.exp(-z*w*tau)*(Math.cos(wd*tau)+(z*w/wd)*Math.sin(wd*tau));}
+class Track{constructor(v0){this.v0=v0;this.cur=v0;this.ev=[];}to(t,v,sp=SP.ui){if(v!==this.cur){this.ev.push([t,v-this.cur,sp]);this.cur=v;}return this;}at(t){let v=this.v0;for(const[ti,d,sp]of this.ev)v+=d*stepR(t-ti,sp);return v;}}
+const SP={ui:{w:16,z:.82},soft:{w:10,z:.9},cam:{w:6.5,z:1},camF:{w:11,z:1},cur:{w:10,z:.95},snap:{w:26,z:.78},lead:{w:30,z:.88},trail:{w:15,z:.9}};
+function vis(t,tin,tout,dOut=.14){const e=stepR(t-tin,{w:24,z:1}),x=tout==null?0:clamp((t-tout)/dOut),xo=x*x;return{o:e*(1-xo),b:(1-e)*10+xo*10,dy:(1-e)*16-xo*10,e};}
+const outQ=x=>1-Math.pow(1-clamp(x),4);
+const M={cues:[]};const cue=(t,type,g=1)=>M.cues.push({t:+t.toFixed(4),type,g});
+const el=(cls,parent,html='')=>{const d=document.createElement('div');if(cls)d.className=cls;d.innerHTML=html;parent.appendChild(d);return d;};
+const W=document.getElementById('world'),H=document.getElementById('hud');
+function applyVis(d,v,extra=''){d.style.opacity=v.o.toFixed(3);d.style.filter=v.b>.05?`blur(${v.b.toFixed(2)}px)`:'none';d.style.transform=`translateY(${v.dy.toFixed(2)}px) ${extra}`;}
+function box(d,x,y,w,h,s=1){d.style.width=w.toFixed(1)+'px';d.style.height=h.toFixed(1)+'px';d.style.transform=`translate(${(x-w/2).toFixed(1)}px,${(y-h/2).toFixed(1)}px) scale(${s.toFixed(4)})`;}
+
+// ───────── data (real, from the running app) ─────────
+const TASKS=[ // base 20, with real pilnosc for active ones
+ {id:6,t:'Kolokwium z algebry liniowej',d:'wtorek',p:'wysoki',g:['studia','matma'],s:126},
+ {id:9,t:'Projekt zespołowy z baz danych',d:'piątek',p:'wysoki',g:['studia'],s:103},
+ {id:15,t:'Pranie',d:'bez terminu',p:'niski',g:['dom'],s:15},
+ {id:8,t:'Zapłacić czynsz',d:'środa',p:'wysoki',g:['dom'],s:118},
+ {id:2,t:'Sprawozdanie z fizyki: wahadło',d:'2 dni po terminie',p:'sredni',g:['studia','fizyka'],s:112,z:1},
+ {id:4,t:'Zadania z analizy matematycznej, lista 6',d:'dziś',p:'sredni',g:['studia','matma'],s:108,dz:1},
+ {id:7,t:'Laboratorium z programowania: lista 5',d:'wtorek',p:'sredni',g:['studia'],s:96},
+ {id:11,t:'Prezentacja z ekonomii',d:'czwartek',p:'sredni',g:['studia'],s:84},
+ {id:3,t:'Oddać książki do biblioteki',d:'wczoraj minął termin',p:'niski',g:[],s:75,z:1},
+ {id:5,t:'Zakupy na tydzień',d:'dziś',p:'niski',g:['dom'],s:75,dz:1},
+ {id:12,t:'Zmiana w kawiarni',d:'sobota',p:'sredni',g:['praca'],s:72},
+ {id:10,t:'Siłownia',d:'jutro',p:'niski',g:['zdrowie'],s:70},
+ {id:14,t:'Wysłać CV na staż',d:'za 8 dni',p:'sredni',g:['praca'],s:60},
+ {id:13,t:'Egzamin z angielskiego B2',d:'za 12 dni',p:'wysoki',g:['studia','angielski'],s:51},
+ {id:17,t:'Dentysta',d:'za 10 dni',p:'sredni',g:['zdrowie'],s:48},
+ {id:19,t:'Kupić prezent dla mamy',d:'za 11 dni',p:'sredni',g:[],s:42},
+ {id:18,t:'Przeczytać artykuł do seminarium',d:'bez terminu',p:'sredni',g:['studia'],s:28},
+ {id:1,t:'Kolokwium z sieci komputerowych',d:'18.11',p:'wysoki',g:['studia'],done:1},
+ {id:16,t:'Zapisać się na WF',d:'19.11',p:'wysoki',g:['studia'],done:1},
+ {id:20,t:'Ogarnąć notatki z wykładu z fizyki',d:'bez terminu',p:'niski',g:['studia','fizyka'],done:1},
+];
+const PCOL={wysoki:'var(--wys)',sredni:'var(--sre)',niski:'var(--nis)'};
+const PLAN=[
+ {l:'Dziś',n:2,z:[['Kolokwium z algebry liniowej','wtorek (2 dni)','wysoki'],['Sprawozdanie z fizyki: wahadło','2 dni po terminie','sredni'],['Zadania z analizy, lista 6','dziś','sredni'],['Zakupy na tydzień','dziś','niski']]},
+ {l:'Jutro',n:1,z:[['Zapłacić czynsz','środa (3 dni)','wysoki'],['Laboratorium z programowania','wtorek (2 dni)','sredni'],['Oddać książki do biblioteki','wczoraj minął termin','niski'],['Siłownia','jutro','niski']]},
+ {l:'wt 24.11',n:2,heavy:1,z:[['Kolokwium z fizyki','czwartek (4 dni)','wysoki']]},
+ {l:'śr 25.11',n:1,z:[['Projekt zespołowy z baz danych','piątek (5 dni)','wysoki'],['Prezentacja z ekonomii','czwartek (4 dni)','sredni']]},
+ {l:'czw 26.11',n:2,heavy:1,z:[['Pranie','bez terminu','niski']]},
+ {l:'pt 27.11',n:1,z:[['Zmiana w kawiarni','sobota (6 dni)','sredni']]},
+ {l:'sob 28.11',n:1,z:[['Przeczytać artykuł do seminarium','bez terminu','sredni']]},
+];
+const STEPS=[['Zbierz materiały i listę zagadnień','nd 22.11'],['Przerób notatki, po jednym dziale na raz','nd 22.11'],['Rozwiąż zadania z poprzednich lat','pon 23.11'],['Próbne kolokwium na czas','wt 24.11'],['Powtórka najtrudniejszych tematów','śr 25.11']];
+const OGAR_FACE=`<svg viewBox="0 0 64 64" width="100%" height="100%"><path d="M14 22c0-6 4-9 8-8l3 1-2 18c-5 1-9-4-9-11z" fill="#5B2A12"/><path d="M50 22c0-6-4-9-8-8l-3 1 2 18c5 1 9-4 9-11z" fill="#5B2A12"/><path d="M20 26c0-7 5-12 12-12s12 5 12 12v8c0 9-5 16-12 16s-12-7-12-16z" fill="#FFE3C8"/><path d="M26 38c0-3 3-4 6-4s6 1 6 4c0 4-3 7-6 7s-6-3-6-7z" fill="#fff"/><ellipse cx="32" cy="36" rx="3.4" ry="2.4" fill="#2A140A"/><circle cx="26.5" cy="28" r="2.3" fill="#2A140A"/><circle cx="37.5" cy="28" r="2.3" fill="#2A140A"/><circle cx="27.2" cy="27.3" r=".7" fill="#fff"/><circle cx="38.2" cy="27.3" r=".7" fill="#fff"/><path d="M29 41c1.5 1.2 4.5 1.2 6 0" stroke="#2A140A" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`;
+const OGAR_IMG=s=>`<img src="ogar.svg" style="width:${s}px;height:${s}px;border-radius:${s*.25}px;display:block">`;
+
+// ───────── timeline constants (120 BPM: beat .5s, bar 2s) ─────────
+const DUR=66, DROP=14;
+// camera
+const CAM={x:new Track(0),y:new Track(-170),lz:new Track(Math.log(1.18))};
+const cam=(t,x,y,z,sp=SP.cam)=>{CAM.x.to(t,x,sp);CAM.y.to(t,y,sp);CAM.lz.to(t,Math.log(z),sp);};
+cam(1.2,0,-85,1.08);cam(2.7,0,0,1.0);cam(4.4,0,-40,0.66,{w:5.5,z:1});cam(9.5,0,-30,0.7,{w:3,z:1});
+cam(13.45,-380,-440,1.25,{w:7,z:1});
+cam(13.95,0,0,1.0,{w:8,z:1});
+cam(15.0,0,10,1.08,{w:2.2,z:1});cam(19.8,0,0,1.0);cam(21.2,0,0,1.0);
+cam(33.8,0,10,0.92,{w:8,z:1});cam(36.0,0,10,0.95,{w:1.5,z:1});cam(41.3,0,30,1.0,{w:7,z:1});
+cam(43.9,0,10,1.0);cam(49.9,0,0,1.0);cam(55.9,0,0,1.0);cam(59.9,0,0,1.0);cam(62.2,0,20,0.97,{w:2.5,z:1});
+const camAt=t=>({x:CAM.x.at(t),y:CAM.y.at(t),z:Math.exp(CAM.lz.at(t))});
+const w2s=(t,wx,wy)=>{const c=camAt(t);return[(wx-c.x)*c.z+960,(wy-c.y)*c.z+540];};
+
+// ───────── the one shape ─────────
+const S={x:new Track(0),y:new Track(-170),w:new Track(860),h:new Track(130),r:new Track(30),s:new Track(0),
+ orange:new Track(0),ink:new Track(0),green:new Track(0),cream:new Track(0),stripe:new Track(1),stripeC:'wys'};
+const shape=el('card',W);shape.id='shape';shape.style.zIndex=5;
+const fO=el('fill',shape);fO.style.background='linear-gradient(135deg,#F2683A,#FF9A5A)';
+const fC=el('fill',shape);fC.style.background='#FFF3EA';
+const fG=el('fill',shape);fG.style.background='#46a758';
+const fI=el('fill',shape);fI.style.background='#1d1a17';
+const stripe=el('stripe',shape);
+const SC=[]; // shape contents: {d, tin, tout, x, y (relative to shape top-left; function of w/h allowed)}
+const sc=(html,tin,tout,pos,style='')=>{const d=el('in',shape,html);d.style.cssText+=style;SC.push({d,tin,tout,pos});return d;};
+const shapeK=(t,o,sp=SP.ui)=>{for(const k in o){if(S[k] instanceof Track)S[k].to(t,o[k],sp);}};
+S.s.to(0,1,{w:20,z:.8});cue(0,'pop',1.1);
+
+// HOOK pills (shape = Kolokwium)
+sc('Kolokwium we wtorek.',0.05,4.45,(w,h)=>[44,h/2-38],'font-size:62px;font-weight:750;letter-spacing:-.03em');
+const P2={x:new Track(0),y:new Track(0),w:new Track(860),h:new Track(130),s:new Track(0)};
+const P3={x:new Track(0),y:new Track(170),w:new Track(860),h:new Track(130),s:new Track(0)};
+const p2=el('card',W),p3=el('card',W);
+[p2,p3].forEach((p,i)=>{const s=el('stripe',p);s.style.background=i?'var(--nis)':'var(--wys)';p.style.borderRadius='30px';p.style.boxShadow='0 2px 4px rgba(40,20,0,.05),0 12px 32px rgba(40,20,0,.06)';});
+const p2t=el('in',p2,'Projekt w piątek.'),p3t=el('in',p3,'Pranie od tygodnia.');
+[p2t,p3t].forEach(d=>d.style.cssText+='font-size:62px;font-weight:750;letter-spacing:-.03em;left:44px;top:27px');
+P2.s.to(1.5,1,{w:20,z:.8});cue(1.5,'pop',1.1);P3.s.to(3.0,1,{w:20,z:.8});cue(3.0,'pop',1.1);
+
+// LIST layout (2 cols x 10)
+const RW=700,RH=88;const slot=i=>[(i<10?-380:380),-440+(i%10)*98];
+const order0=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19];
+// hook pills go to slots 0 (shape), 1, 2 -> but put them in different places for a messy list
+const startSlot={0:3,1:12,2:17};
+const rank=[...TASKS.keys()].filter(i=>!TASKS[i].done).sort((a,b)=>TASKS[b].s-TASKS[a].s).concat(TASKS.map((x,i)=>i).filter(i=>TASKS[i].done));
+const ROWS=[];
+const rowHTML=tk=>{const chips=`<span class="chip ${tk.z?'zal':tk.dz?'dz':''}">${tk.d}</span>`+tk.g.map(g=>`<span class="chip tag">#${g}</span>`).join('');
+ return `<div class="in" style="left:30px;top:13px"><span class="t" style="font-size:25px;font-weight:650;letter-spacing:-.01em;${tk.done?'text-decoration:line-through;color:#9a928b':''}">${tk.t}</span></div><div class="in" style="left:30px;top:50px">${chips}</div>`;};
+let messy=[];{let free=[...Array(20).keys()].filter(s=>![3,12,17].includes(s));let k=0;for(let i=0;i<20;i++){messy[i]=startSlot[i]!==undefined?startSlot[i]:free[k++];}}
+TASKS.forEach((tk,i)=>{
+ if(i===0){ROWS.push(null);return;}
+ const d=el('card row',W);d.style.borderRadius='16px';d.style.boxShadow='0 1px 2px rgba(40,20,0,.05),0 4px 16px rgba(40,20,0,.05)';
+ const st=el('stripe',d);st.style.background=PCOL[tk.p];st.style.width='6px';
+ const inner=el('ab',d,rowHTML(tk));inner.style.cssText+='width:100%;height:100%';
+ const bd=tk.s?el('badge',d,`${tk.s}`):null;
+ const [sx,sy]=slot(messy[i]);const R={d,inner,bd,tk,x:new Track(sx),y:new Track(sy),tin:0,s:new Track(0)};
+ ROWS.push(R);
+});
+// hook pills morph into rows at 4.5
+const HK=4.5;
+shapeK(HK,{w:RW,h:RH,r:16},SP.ui);{const[sx,sy]=slot(messy[0]);S.x.to(HK,sx,SP.ui);S.y.to(HK,sy,SP.ui);}
+[[P2,1],[P3,2]].forEach(([P,i])=>{const[sx,sy]=slot(messy[i]);P.x.to(HK,sx);P.y.to(HK,sy);P.w.to(HK,RW);P.h.to(HK,RH);});
+cue(HK-.05,'whoosh',1);
+const rowShape=sc(rowHTML(TASKS[0]),HK+.12,13.95,(w,h)=>[0,0]);rowShape.style.cssText+='width:700px;height:88px';
+const shapeBadge=sc(`<div class="badge" style="position:static">126</div>`,10.0,13.95,(w,h)=>[w-90,24]);
+// other rows pop in on 16ths
+let order=[...Array(20).keys()].filter(i=>i>2);
+order.forEach((i,k)=>{const t=HK+.25+k*.125;ROWS[i].tin=t;ROWS[i].s.to(t,1,{w:22,z:.8});if(k%2==0)cue(t,'tick',.7);});
+ROWS[1].tin=HK+.12;ROWS[2].tin=HK+.12;ROWS[1].s.to(0,1,{w:999,z:1});ROWS[2].s.to(0,1,{w:999,z:1});
+// pilnosc badges 10.0 -> 12.2 (random-ish order), sort at 12.4
+const badgeT={};{const ids=[...Array(20).keys()].filter(i=>!TASKS[i].done);ids.sort((a,b)=>((a*7)%11)-((b*7)%11));ids.forEach((i,k)=>{badgeT[i]=10.0+k*.125;cue(badgeT[i],'blip',.6+.02*k);});}
+const SORT=12.25;
+rank.forEach((i,r)=>{const[sx,sy]=slot(r);const dl=r*.03;if(i===0){S.x.to(SORT+dl,sx,SP.soft);S.y.to(SORT+dl,sy,SP.soft);}else{ROWS[i].x.to(SORT+dl,sx,SP.soft);ROWS[i].y.to(SORT+dl,sy,SP.soft);}});
+cue(SORT,'swoosh',1);
+// DROP: rows out, shape -> hero
+const HERO={x:0,y:-50,w:1260,h:360};
+shapeK(DROP-.05,{x:HERO.x,y:HERO.y,w:HERO.w,h:HERO.h,r:40,orange:1,stripe:0},{w:14,z:.86});
+cue(DROP,'slam',1.3);
+sc('<span class="mono" style="font-size:21px;letter-spacing:.14em;font-weight:600">⚡ ZACZNIJ OD TEGO</span>',DROP+.15,20.9,(w,h)=>[64,58],'color:#fff;opacity:.9');
+sc('Kolokwium z algebry liniowej',DROP+.3,20.9,(w,h)=>[62,104],'color:#fff;font-size:66px;font-weight:750;letter-spacing:-.03em');
+sc('Bo termin blisko (wtorek, 2 dni), priorytet wysoki.',DROP+.55,20.9,(w,h)=>[64,214],'color:#fff;font-size:29px;opacity:.95');
+const odoBox=sc('',DROP+.4,20.9,(w,h)=>[w-300,70],'width:240px;height:220px;text-align:center;color:#fff');
+odoBox.innerHTML=`<div class="mono" style="font-size:18px;letter-spacing:.14em;opacity:.85">PILNOŚĆ</div><div id="odo" style="position:relative;height:130px;margin-top:6px;display:flex;justify-content:center"></div>`;
+// odometer digits
+const ODO={v:126,t0:DROP+.5,t1:DROP+1.6};const odoEl=odoBox.querySelector('#odo');const odoStrips=[];
+for(let p=2;p>=0;p--){const slotD=el('',odoEl);slotD.style.cssText='position:relative;width:72px;height:130px;overflow:hidden';const strip=el('',slotD,[0,1,2,3,4,5,6,7,8,9,0].map(n=>`<div style="height:130px;line-height:130px;font-size:120px;font-weight:750;letter-spacing:-.04em">${n}</div>`).join(''));strip.style.position='absolute';strip.style.left='0';strip.style.width='72px';odoStrips.push({p,strip});}
+for(let k=0;k<10;k++)cue(ODO.t0+k*.11,'tick',.5);cue(ODO.t1,'chime',1);
+// factor chips below hero
+const FCH=[['priorytet: <b>wysoki</b>',17.0],['×',17.25],['termin: <b>wtorek, za 2 dni</b>',17.5],['=',17.75],['pilność <b>126</b>',18.0]];
+const fwrap=el('ab',W);fwrap.style.cssText+='display:flex;gap:26px;align-items:center;white-space:nowrap';
+const fchips=FCH.map(([h,t])=>{const d=el('',fwrap,h);d.style.cssText+=`font-size:30px;white-space:nowrap;${h.length>2?'background:#fff;border:1px solid var(--linia);border-radius:99px;padding:14px 26px;':'font-size:40px;color:var(--szary);font-weight:300'}`;if(h.startsWith('pilno'))d.style.cssText+='background:var(--ak);color:#fff;border-color:transparent';cue(t,h.length>2?'pop':'tick',.8);return{d,t};});
+// ───── chat (22-31) ─────
+const CH={x:330,y:20,w:900,h:900};
+shapeK(21.2,{x:CH.x,y:CH.y,w:CH.w,h:CH.h,r:34,orange:0},{w:11,z:.88});cue(21.2,'whoosh',1.1);
+sc(`<div style="display:flex;align-items:center;gap:16px">${OGAR_IMG(60)}<div><div style="font-size:28px;font-weight:750">Ogar</div><div style="font-size:19px;color:var(--szary)">asystent AI · tropi terminy</div></div></div>`,21.6,30.4,(w,h)=>[32,26]);
+sc('<div style="width:836px;height:1px;background:var(--linia)"></div>',21.7,30.4,(w,h)=>[32,110]);
+const UB='dodaj kolokwium z fizyki w czwartek #fizyka';
+const bubbleUser=(txt,tin,tout,y)=>sc(`<div style="background:var(--ak);color:#fff;font-size:24px;padding:14px 20px;border-radius:20px 20px 6px 20px">${txt}</div>`,tin,tout,(w,h)=>[w-32-560,y],'width:560px;display:flex;justify-content:flex-end');
+bubbleUser(UB,26.05,30.4,140);cue(26.05,'send',1);
+const THO=['Intencja: nowe zadanie','Termin: „czwartek” → 26.11','Priorytet: wysoki (sprawdzian)','Tagi: #fizyka, #studia','Tytuł: „Kolokwium z fizyki”'];
+sc('<span style="font-size:19px;color:var(--szary)">▾ Ogar pomyślał (5 kroków)</span>',26.5,30.4,(w,h)=>[48,232]);
+THO.forEach((l,k)=>{const t=26.85+k*.45;sc(`<span style="font-size:22px;color:#4a443f">${k+1}. ${l}</span>`,t,30.4,(w,h)=>[48,270+k*38]);cue(t,'blip',.8+.1*k);});
+sc('<div style="width:3px;height:220px;background:var(--linia)"></div>',26.5,30.4,(w,h)=>[34,232]);
+sc(`<div style="background:var(--tlo);font-size:24px;padding:16px 22px;border-radius:20px 20px 20px 6px;line-height:1.4;white-space:normal;width:640px">Dodane! 📌 <b>Kolokwium z fizyki</b>, na <b>czwartek</b> (26.11), priorytet wysoki.</div>`,29.15,30.4,(w,h)=>[32,490]);cue(29.15,'chime',.9);
+// ───── task card (30.5-34) ─────
+const TC={x:0,y:0,w:1040,h:150};
+shapeK(30.45,{x:TC.x,y:TC.y,w:TC.w,h:TC.h,r:22,stripe:1},{w:13,z:.86});cue(30.45,'whoosh',1);
+const cardHTML=`<div style="font-size:42px;font-weight:750;letter-spacing:-.025em">Kolokwium z fizyki</div><div style="margin-top:12px"><span class="chip">czwartek 26.11</span><span class="chip tag">#fizyka</span><span class="chip tag">#studia</span><span class="chip" style="background:#fde8e8;color:var(--wys)">priorytet wysoki</span><span class="chip">pilność 111</span></div>`;
+sc(cardHTML,30.75,33.85,(w,h)=>[40,28]);
+// ───── week board (34-44) ─────
+const BD={x:0,y:-10,w:1760,h:540};const colX=i=>-744+246*i;const tileY=k=>-176+k*96;
+const board=el('card',W);board.style.borderRadius='30px';board.style.boxShadow='0 2px 4px rgba(40,20,0,.04),0 20px 50px rgba(40,20,0,.07)';
+const BOARD_IN=33.95,BOARD_OUT=43.95;cue(BOARD_IN,'whoosh',1);
+const dayEls=PLAN.map((day,i)=>{const d=el('ab',W,`<div style="font-size:24px;font-weight:750">${day.l}</div><div style="font-size:16px;color:${day.heavy?'var(--wys)':'var(--szary)'};font-weight:${day.heavy?700:500};margin-top:2px">${day.heavy?'kumulacja: ':''}${day.n} ${day.n>1?'terminy':'termin'}</div>`);return{d,t:BOARD_IN+.1+i*.06};});
+const heavyEls=PLAN.map((day,i)=>{if(!day.heavy)return null;const d=el('ab',W);d.style.cssText+='border:2.5px solid var(--wys);border-radius:18px';return d;});
+const tiles=[];let tk=0;
+PLAN.forEach((day,i)=>day.z.forEach((z,k)=>{if(i===2&&k===0){tiles.push(null);return;}const d=el('tile',W,`<b>${z[0]}</b><small>${z[1]}</small>`);d.style.borderLeftColor=PCOL[z[2]];const t=BOARD_IN+.25+tk*.09;tk++;tiles.push({d,i,k,t});cue(t,'tick',.55);}));
+// shape -> wt tile
+shapeK(BOARD_IN,{x:colX(2),y:tileY(0)+40,w:218,h:86,r:12,stripe:1,cream:0},{w:13,z:.86});
+sc(`<div style="font-size:17.5px;font-weight:650;line-height:1.2">Kolokwium z fizyki</div><div style="font-size:14px;color:var(--szary);margin-top:4px">czwartek (4 dni)</div>`,BOARD_IN+.2,BOARD_OUT,(w,h)=>[15,10]);
+const arrow=el('ab',W,`<svg width="520" height="150" viewBox="0 0 520 150" overflow="visible"><path id="arp" d="M470 78 C 430 -12, 120 -12, 40 78" fill="none" stroke="#F2683A" stroke-width="4" stroke-linecap="round"/><path id="arh" d="M26 60 L40 80 L60 66" fill="none" stroke="#F2683A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg><div style="position:absolute;left:150px;top:0px;font-size:21px;font-weight:700;color:var(--akc);background:var(--akj);padding:6px 14px;border-radius:99px;white-space:nowrap">2 dni przed terminem</div>`);
+const ARROW_T=36.4;cue(ARROW_T,'pen',1);
+const warn=el('ab',W,`<div style="display:flex;gap:14px;align-items:center;background:#fff4e5;border:1px solid #ffd8a8;color:#7a4a00;padding:16px 24px;border-radius:16px;font-size:24px;white-space:nowrap">⚠️ Czwartek 26.11 kumulacja: 2 terminy naraz. Zacznij „Kolokwium z fizyki” wcześniej.</div>`);
+const WARN_T=37.3;cue(WARN_T,'alert',1);
+// ───── steps (44-50) ─────
+const ST_IN=44.0;
+shapeK(ST_IN,{x:0,y:-290,w:1000,h:120,r:22},{w:12,z:.86});cue(ST_IN,'whoosh',1);
+sc(`<div style="font-size:40px;font-weight:750;letter-spacing:-.025em">Kolokwium z fizyki</div><div style="margin-top:8px"><span class="chip">czwartek 26.11</span><span class="chip tag">#fizyka</span><span class="chip tag">#studia</span></div>`,ST_IN+.2,49.95,(w,h)=>[40,18]);
+const stepEls=STEPS.map((s,k)=>{const d=el('step',W,`<div class="in" style="left:22px;top:20px;width:44px;height:44px;border-radius:50%;background:var(--akj);color:var(--akc);font-weight:750;font-size:22px;display:flex;align-items:center;justify-content:center">${k+1}</div><div class="in" style="left:86px;top:22px;font-size:28px;font-weight:600">${s[0]}</div><div class="in" style="right:24px;top:24px"><span class="chip" style="font-size:19px">${s[1]}</span></div><div class="in chk" style="left:22px;top:20px;width:44px;height:44px;border-radius:50%;background:var(--nis);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center">✓</div>`);const t=44.5+k*.5;cue(t,'pop',.9);const ct=48.15+k*.16;cue(ct,'chime',.55+.08*k);return{d,t,ct,y:-140+k*96,chk:d.querySelector('.chk')};});
+const yesBtn=el('ab',W,`<div style="background:var(--ak);color:#fff;font-size:28px;font-weight:700;padding:18px 36px;border-radius:99px;white-space:nowrap">Tak, dodaj</div>`);const YES_IN=47.0,YES_CLICK=48.0;cue(YES_IN,'pop',.8);
+// ───── rescue (50-56) ─────
+const RS=50.0;
+shapeK(RS,{x:0,y:20,w:1180,h:700,r:40,stripe:0,cream:1},{w:9,z:.9});cue(RS,'swell',1);
+sc(`<span class="mono" style="font-size:21px;letter-spacing:.14em;font-weight:600;color:var(--akc)">TRYB RATUNKOWY</span>`,RS+.25,55.55,(w,h)=>[70,60]);
+sc(`<div style="width:76px;height:76px">${OGAR_IMG(76)}</div>`,RS+.3,55.55,(w,h)=>[w-146,46]);
+sc(`<div style="font-size:64px;font-weight:750;letter-spacing:-.03em">Weź trzy wdechy.</div>`,RS+.5,55.55,(w,h)=>[66,100]);
+sc(`<div style="font-size:30px;color:#4a443f">Teraz liczą się tylko te 3 rzeczy:</div>`,RS+1.0,55.55,(w,h)=>[70,196]);
+[['Zbierz materiały i listę zagadnień','termin dziś, priorytet wysoki'],['Przerób notatki, po jednym dziale na raz','termin dziś, priorytet wysoki'],['Rozwiąż zadania z poprzednich lat','termin jutro, priorytet wysoki']].forEach((it,k)=>{const t=51.5+k*.5;cue(t,'note',.8+.1*k);
+ sc(`<div style="display:flex;align-items:center;gap:22px"><div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#F2683A,#FF9A5A);color:#fff;font-weight:750;font-size:28px;display:flex;align-items:center;justify-content:center">${k+1}</div><div><div style="font-size:31px;font-weight:650">${it[0]}</div><div style="font-size:19px;color:var(--szary);margin-top:3px">Kolokwium z fizyki · ${it[1]}</div></div></div>`,t,55.55,(w,h)=>[70,270+k*104]);});
+sc(`<div style="font-size:24px;color:var(--szary)">Pozostałe 20 zadań poczekają, nikt się nie obrazi.</div>`,53.6,55.55,(w,h)=>[70,600]);
+// ───── basics (56-60) ─────
+const BAS=[[56.0,'+ Dodaj','orange',440],[56.5,'✎ Edytuj','white',460],[57.0,'✓ Odhacz','green',470],[57.5,'✕ Usuń <span style="color:#FF9A5A">· Cofnij</span>','ink',560],[58.0,'⬆ Wczytaj JSON','white',600],[58.5,'⬇ Zapisz JSON','orange',600]];
+BAS.forEach(([t,lab,col,w],k)=>{shapeK(t-.06,{x:0,y:0,w,h:130,r:65,orange:+(col=='orange'),green:+(col=='green'),ink:+(col=='ink'),cream:0},{w:22,z:.8});
+ sc(`<div style="font-size:48px;font-weight:750;letter-spacing:-.02em;color:${col=='white'?'var(--ink)':'#fff'};text-align:center;width:${w}px">${lab}</div>`,t+.02,k<5?BAS[k+1][0]-.08:58.98,(W_,h)=>[0,h/2-30]);cue(t,'click',1.1);cue(t,'kick',.8);});
+[[59.0,360],[59.25,280],[59.5,220],[59.75,176]].forEach(([t,w])=>{shapeK(t-.04,{w,h:w*0.62+60*(1-w/360),r:40,orange:1,green:0,ink:0},{w:24,z:.8});cue(t,'thump',.8+(59.75-t));});
+// ───── end card (60-66) ─────
+const END=60.0;
+shapeK(END-.06,{x:-330,y:-30,w:240,h:240,r:60,orange:0},{w:15,z:.82});
+const logoRect=sc('',END-.1,null,(w,h)=>[0,0],'width:100%;height:100%;background:#F2683A');logoRect.style.inset='0';
+const face=sc(`<div style="width:240px;height:240px">${OGAR_FACE}</div>`,END+.05,null,(w,h)=>[w/2-120,h/2-120]);
+cue(END,'slam',1.5);
+const word=el('ab',H,`<div style="font-size:150px;font-weight:780;letter-spacing:-.05em;white-space:nowrap">Ogarniacz<span style="color:var(--ak)">.</span></div>`);
+const slogan=el('ab',H,`<div style="font-size:58px;font-weight:600;letter-spacing:-.025em;color:var(--ak);white-space:nowrap">Ogarnij semestr.</div>`);
+const foot=el('ab',H,`<div style="text-align:center;white-space:nowrap"><div style="font-size:30px;font-weight:650">Rust · open source</div><div class="mono" style="font-size:25px;color:var(--szary);margin-top:10px">github.com/paweltyburski/best-coding-marathon-eliminations</div></div>`);
+cue(61.0,'note',1);cue(62.3,'chime',.8);
+
+// ───── captions (screen space) ─────
+const CAPS=[
+ [6.0,7.9,'Zwykła lista: <em>20 rzeczy</em> naraz.',960,80,52,'c'],
+ [8.0,9.9,'I ani słowa, <em>od czego zacząć.</em>',960,80,52,'c'],
+ [10.0,13.3,'Ogarniacz liczy <em>pilność</em> każdego zadania.',960,80,52,'c'],
+ [14.6,19.6,'Zacznij od tego. <em>Z uzasadnieniem.</em>',960,120,56,'c'],
+ [21.9,30.3,'Piszesz <em>jak do kumpla.</em>',110,380,64,'l'],
+ [23.2,30.3,'<span style="font-weight:500;color:var(--szary)">Ogar sam ustala datę,<br>priorytet i tagi.</span>',112,470,38,'l'],
+ [30.9,33.7,'Jedno zdanie <em>zamiast formularza.</em>',960,330,52,'c'],
+ [34.5,38.0,'Praca rozłożona <em>przed terminami.</em>',960,62,52,'c'],
+ [38.3,41.2,'I ostrzeżenie, <em>zanim się skumuluje.</em>',960,62,52,'c'],
+ [44.3,49.8,'Za duże? <em>Pięć małych kroków.</em>',960,96,52,'c'],
+ [56.0,59.0,'Podstawy też są.',960,170,40,'c'],
+];
+const capEls=CAPS.map(c=>{const d=el('cap',H,c[2]);d.style.fontSize=c[5]+'px';return{d,c};});
+// ───── command bar (hud) ─────
+const bar=el('ab',H,`<div style="position:relative;width:820px;height:84px;background:#fff;border:1.5px solid var(--linia);border-radius:42px;box-shadow:0 2px 4px rgba(40,20,0,.04),0 14px 36px rgba(40,20,0,.08)"><div style="position:absolute;left:14px;top:14px">${OGAR_IMG(56)}</div><div id="btxt" style="position:absolute;left:86px;top:0;height:84px;line-height:84px;font-size:27px;white-space:nowrap"></div><div id="bsend" style="position:absolute;right:12px;top:12px;width:60px;height:60px;border-radius:50%;background:var(--ak);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center">➤</div></div>`);
+const btxt=bar.querySelector('#btxt'),bsend=bar.querySelector('#bsend');
+const BAR={x:new Track(1290),vis:[[22.2,30.6],[31.6,34.3],[41.4,44.3],[48.7,50.4]]};BAR.x.to(30.9,960,SP.soft);
+const TYPE=[ // [t0, text, cps, send]
+ [23.0,UB,16,26.0],[32.0,'zaplanuj mi tydzień',16,33.75],[41.8,'Rozbij kolokwium z fizyki na kroki',17,44.0],[49.0,'nie dam rady',15,50.0]];
+TYPE.forEach(([t0,s,cps,send])=>{for(let i=0;i<s.length;i++){if(s[i]!==' '||i%2)cue(t0+i/cps,'key',.55+((i*37)%10)/40);}cue(send,'click',1);});
+// ───── cursors ─────
+function mkCursor(name,grad){const d=el('cur',H,`<svg width="34" height="40" viewBox="0 0 34 40" style="position:absolute;left:-3px;top:-2px;overflow:visible"><defs><linearGradient id="g${name}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${grad[0]}"/><stop offset="1" stop-color="${grad[1]}"/></linearGradient></defs><path d="M3 2 L3 31 L11 24 L17 37 L23 34 L17 22 L28 22 Z" fill="url(#g${name})" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg><div class="pill" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${name}</div>`);
+ const rip=el('rip',H);return{d,rip,pill:d.querySelector('.pill'),x:new Track(1700),y:new Track(1250),clicks:[],vis:[]};}
+const CU=mkCursor('Ty',['#2a2622','#1d1a17']),CO=mkCursor('Ogar',['#F2683A','#FF9A5A']);
+const mv=(C,t,x,y,lead=.38)=>{C.x.to(t-lead,x,SP.cur);C.y.to(t-lead,y,SP.cur);};
+const click=(C,t)=>{C.clicks.push(t);};
+// Ty
+CU.vis.push([20.0,30.7]);mv(CU,20.6,1500,1000);mv(CU,22.6,940,958);click(CU,22.6);cue(22.6,'click',.9);mv(CU,23.6,1010,1010,.5);mv(CU,26.0,1652,950);click(CU,26.0);mv(CU,27.4,1760,1030,.6);
+CU.vis.push([31.4,34.2]);mv(CU,31.6,1500,1060,.01);mv(CU,32.0,620,958);click(CU,32.0);cue(32.0,'click',.9);mv(CU,33.75,1326,950);click(CU,33.75);mv(CU,34.4,1650,1120,.4);
+CU.vis.push([41.2,44.4]);mv(CU,41.3,1500,1100,.01);mv(CU,41.75,620,958);click(CU,41.75);cue(41.75,'click',.9);mv(CU,44.0,1326,950);click(CU,44.0);mv(CU,45.2,1500,1050,.6);
+CU.vis.push([44.4,50.6]);mv(CU,YES_CLICK,975,902);click(CU,YES_CLICK);cue(YES_CLICK,'click',1.1);mv(CU,48.8,620,958);click(CU,48.8);cue(48.8,'click',.9);mv(CU,50.0,1326,950);click(CU,50.0);mv(CU,50.9,1700,1150,.5);
+CU.vis.push([55.4,59.4]);mv(CU,55.7,1300,800,.01);BAS.forEach(([t],k)=>{mv(CU,t,1000+(k%2)*24,560+(k%3)*8,.3);click(CU,t);});mv(CU,59.3,1500,1100,.4);
+// Ogar agent cursor
+CO.vis.push([15.6,19.9]);mv(CO,15.7,1400,1000,.01);mv(CO,16.5,620,560,.45);click(CO,16.5);cue(16.5,'click',.8);mv(CO,18.0,1530,700,.4);click(CO,18.05);cue(18.05,'click',.7);mv(CO,19.8,1650,1150,.5);
+CO.vis.push([34.6,38.0]);mv(CO,34.7,1400,1000,.01);mv(CO,35.9,760,470,.5);click(CO,35.9);cue(35.9,'click',.9);mv(CO,37.4,1180,880,.45);mv(CO,38.0,1700,1150,.4);
+CO.vis.push([51.0,55.5]);mv(CO,51.1,1600,1000,.01);mv(CO,52.6,486,522,.5);mv(CO,54.0,1450,880,.6);mv(CO,55.4,1600,1100,.5);
+
+// ───────── draw ─────────
+const bgP1=document.getElementById('pool1'),bgP2=document.getElementById('pool2');
+bgP1.style.background='radial-gradient(closest-side,rgba(255,154,90,.20),rgba(255,154,90,0))';bgP2.style.background='radial-gradient(closest-side,rgba(242,104,58,.12),rgba(242,104,58,0))';
+const thr=document.getElementById('thr').getContext('2d');
+function inVis(C,t){let o=0,b=0;for(const[a,z]of C.vis){const v=vis(t,a,z,.18);if(v.o>o){o=v.o;b=v.b;}}return{o,b};}
+function curPos(C,t){return[C.x.at(t),C.y.at(t)];}
+function drawCursor(C,t,trailColor){const{o}=inVis(C,t);const d=C.d;if(o<.01){d.style.opacity=0;C.rip.style.opacity=0;return;}
+ const[x,y]=curPos(C,t);const[x2,y2]=curPos(C,t-.016);const vx=(x-x2)/.016;const lean=clamp(-vx*.0045,-14,14);
+ let press=1;for(const tc of C.clicks)press-= .16*Math.exp(-Math.pow((t-tc)/.045,2));
+ d.style.opacity=o.toFixed(3);d.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${lean.toFixed(2)}deg) scale(${press.toFixed(3)})`;
+ C.pill.style.transform=`translateX(${clamp(-vx*.012,-30,30).toFixed(1)}px)`;
+ let ro=0,rs=0;for(const tc of C.clicks){const k=(t-tc)/.4;if(k>=0&&k<1){ro=(1-k)*.7;rs=10+k*60;}}
+ C.rip.style.opacity=(ro*o).toFixed(3);C.rip.style.width=C.rip.style.height=(rs*2)+'px';C.rip.style.transform=`translate(${(x-rs).toFixed(1)}px,${(y-rs).toFixed(1)}px)`;C.rip.style.borderColor=trailColor;
+ // trail
+ const pts=[];for(let k=0;k<=22;k++){pts.push(curPos(C,t-k*.009));}
+ const sp=Math.hypot(vx,(y-y2)/.016);const a=clamp((sp-500)/2500)*.55*o;if(a>.01){thr.lineCap='round';for(let k=0;k<22;k++){thr.strokeStyle=trailColor;thr.globalAlpha=a*(1-k/22);thr.lineWidth=7*(1-k/22)+1;thr.beginPath();thr.moveTo(pts[k][0]+2,pts[k][1]+2);thr.lineTo(pts[k+1][0]+2,pts[k+1][1]+2);thr.stroke();}thr.globalAlpha=1;}}
+
+function seek(t){
+ const c=camAt(t);W.style.transform=`translate(960px,540px) scale(${c.z.toFixed(5)}) translate(${(-c.x).toFixed(2)}px,${(-c.y).toFixed(2)}px)`;
+ bgP1.style.transform=`translate(${(-300+Math.sin(t*.21)*160).toFixed(1)}px,${(-500+Math.cos(t*.17)*120).toFixed(1)}px)`;bgP2.style.transform=`translate(${(900+Math.cos(t*.19)*180).toFixed(1)}px,${(100+Math.sin(t*.23)*140).toFixed(1)}px)`;
+ thr.clearRect(0,0,1920,1080);
+ // shape
+ let sw=S.w.at(t),shh=S.h.at(t),ss=S.s.at(t);
+ if(t>50&&t<56){const br=Math.sin((t-50)*Math.PI*.5)*0.008;ss*=1+br;}
+ box(shape,S.x.at(t),S.y.at(t),sw,shh,ss);shape.style.borderRadius=S.r.at(t).toFixed(1)+'px';
+ fO.style.opacity=clamp(S.orange.at(t)).toFixed(3);fG.style.opacity=clamp(S.green.at(t)).toFixed(3);fI.style.opacity=clamp(S.ink.at(t)).toFixed(3);fC.style.opacity=clamp(S.cream.at(t)).toFixed(3);
+ stripe.style.opacity=clamp(S.stripe.at(t)).toFixed(3);stripe.style.background=t<33?'var(--wys)':'var(--wys)';
+ const shadowK=clamp(S.orange.at(t));shape.style.boxShadow=`0 2px 4px rgba(40,20,0,.05),0 ${14+10*shadowK}px ${36+10*shadowK}px rgba(${shadowK>.5?'242,104,58,.22':'40,20,0,.08'})`;
+ shape.style.borderColor=(S.orange.at(t)>.5||S.green.at(t)>.5||S.ink.at(t)>.5||t>59.7)?'transparent':'var(--linia)';
+ for(const it of SC){const v=vis(t,it.tin,it.tout);if(v.o<.005){it.d.style.display='none';continue;}it.d.style.display='';const[px,py]=it.pos(sw,shh);it.d.style.left=px+'px';it.d.style.top=py+'px';applyVis(it.d,v);}
+ // hook pills P2/P3
+ [[P2,p2,p2t,ROWS[1]],[P3,p3,p3t,ROWS[2]]].forEach(([P,d,txt,R])=>{const s=P.s.at(t);if(s<.002||t>HK+.5){d.style.display='none';return;}d.style.display='';box(d,P.x.at(t),P.y.at(t),P.w.at(t),P.h.at(t),s);d.style.borderRadius=(30-14*clamp((t-HK)/.3)).toFixed(1)+'px';const v=vis(t,0,HK-.05);applyVis(txt,v);});
+ // rows
+ ROWS.forEach((R,i)=>{if(!R)return;const isHook=i<=2;let s=isHook?(t>=HK+.3?1:0):R.s.at(t);const vo=vis(t,R.tin,DROP-.1,.25);
+  if(t<R.tin||vo.o<.005||(isHook&&t<HK+.3)){R.d.style.display='none';return;}R.d.style.display='';
+  box(R.d,R.x.at(t),R.y.at(t),RW,RH,s*(t>DROP-.1?1-.15*clamp((t-DROP+.1)/.25):1));R.d.style.opacity=vo.o.toFixed(3);R.d.style.filter=vo.b>.05?`blur(${vo.b.toFixed(1)}px)`:'none';
+  if(isHook)applyVis(R.inner,vis(t,HK+.2,null));
+  if(R.bd){const bt=badgeT[i];const bv=vis(t,bt,null);R.bd.style.opacity=bv.o.toFixed(3);R.bd.style.transform=`scale(${(0.6+0.4*stepR(t-bt,SP.snap)).toFixed(3)})`;}
+ });
+ // hook rows: P2/P3 hand over to ROWS[1/2] positions continuity
+ if(t>=HK+.3){/* ROWS[1],[2] start at messy slots, same as P targets */}
+ // shape row badge already via SC
+ // odometer
+ {const k=outQ((t-ODO.t0)/(ODO.t1-ODO.t0));const v=Math.round(k*ODO.v*1000)/1000;for(const{p,strip}of odoStrips){const pw=Math.pow(10,p);let dg=Math.floor(v/pw)%10+Math.max(0,(v%pw)-(pw-1));strip.style.transform=`translateY(${(-dg*130).toFixed(1)}px)`;strip.parentNode.style.opacity=(p===2?clamp((v-95)/10):p===1?clamp((v-8)/3):1).toFixed(3);}}
+ // factor chips
+ {fwrap.style.display=(t>16.8&&t<20.8)?'flex':'none';const fw=fwrap.offsetWidth;fwrap.style.left=(-fw/2)+'px';fwrap.style.top=(HERO.y+HERO.h/2+80)+'px';
+  fchips.forEach(({d,t:tin})=>{const v=vis(t,tin,20.4);applyVis(d,v,`scale(${(0.85+0.15*v.e).toFixed(3)})`);});}
+ // board
+ {const v=vis(t,BOARD_IN,BOARD_OUT,.2);if(v.o<.005){board.style.display='none';}else{board.style.display='';const e=stepR(t-BOARD_IN,{w:12,z:.88});box(board,BD.x,BD.y,BD.w*(0.6+0.4*e),BD.h*(0.6+0.4*e));board.style.opacity=v.o;board.style.filter=v.b>.05?`blur(${v.b}px)`:'none';}
+  dayEls.forEach(({d,t:tin},i)=>{const dv=vis(t,tin,BOARD_OUT,.2);if(dv.o<.005){d.style.display='none';return;}d.style.display='';d.style.left=(colX(i)-105)+'px';d.style.top=(BD.y-BD.h/2+30)+'px';applyVis(d,dv);});
+  heavyEls.forEach((d,i)=>{if(!d)return;const hv=vis(t,WARN_T,BOARD_OUT,.2);if(hv.o<.005){d.style.display='none';return;}d.style.display='';box(d,colX(i),BD.y,236,BD.h-24);d.style.opacity=hv.o;});
+  tiles.forEach(T=>{if(!T)return;const tv=vis(t,T.t,BOARD_OUT-.05+T.i*.02,.2);if(tv.o<.005){T.d.style.display='none';return;}T.d.style.display='';box(T.d,colX(T.i),tileY(T.k)+40,218,86,0.8+0.2*stepR(t-T.t,SP.snap));T.d.style.opacity=tv.o;T.d.style.filter=tv.b>.05?`blur(${tv.b}px)`:'none';});
+  const av=vis(t,ARROW_T,BOARD_OUT,.2);if(av.o<.005)arrow.style.display='none';else{arrow.style.display='';arrow.style.left=(colX(2)-40)+'px';arrow.style.top=(BD.y-BD.h/2-58)+'px';arrow.style.opacity=av.o;const pth=arrow.querySelector('#arp');const L=pth.getTotalLength();const k=outQ((t-ARROW_T)/.6);pth.style.strokeDasharray=L;pth.style.strokeDashoffset=(L*(1-k)).toFixed(1);arrow.querySelector('#arh').style.opacity=clamp((k-.85)/.15);}
+  const wv=vis(t,WARN_T,BOARD_OUT,.2);if(wv.o<.005)warn.style.display='none';else{warn.style.display='';const w=warn.offsetWidth;warn.style.left=(-w/2)+'px';warn.style.top=(BD.y+BD.h/2+28)+'px';applyVis(warn,wv,`scale(${(0.9+0.1*wv.e).toFixed(3)})`);}
+ }
+ // steps
+ stepEls.forEach((s,k)=>{const v=vis(t,s.t,49.95-k*.04,.2);if(v.o<.005){s.d.style.display='none';return;}s.d.style.display='';const e=stepR(t-s.t,{w:14,z:.84});box(s.d,0,-290+(s.y+290)*e,940,84);s.d.style.opacity=v.o;s.d.style.filter=v.b>.05?`blur(${v.b}px)`:'none';const cv=stepR(t-s.ct,SP.snap);s.chk.style.opacity=clamp(cv).toFixed(3);s.chk.style.transform=`scale(${(0.4+0.6*cv).toFixed(3)})`;});
+ {const v=vis(t,YES_IN,48.55,.2);if(v.o<.005)yesBtn.style.display='none';else{yesBtn.style.display='';const w=yesBtn.offsetWidth,h=yesBtn.offsetHeight;let pr=1-.08*Math.exp(-Math.pow((t-YES_CLICK)/.06,2));yesBtn.style.left=(-w/2)+'px';yesBtn.style.top=(362-h/2)+'px';applyVis(yesBtn,v,`scale(${pr.toFixed(3)})`);}}
+ // end
+ {const v=vis(t,END+.15,null);word.style.left='820px';word.style.top='352px';applyVis(word,v);word.style.display=v.o<.005?'none':'';
+  const v2=vis(t,61.0,null);slogan.style.left='828px';slogan.style.top='545px';applyVis(slogan,v2);slogan.style.display=v2.o<.005?'none':'';
+  const v3=vis(t,62.3,null);foot.style.display=v3.o<.005?'none':'';const fw=foot.offsetWidth;foot.style.left=(960-fw/2)+'px';foot.style.top='830px';applyVis(foot,v3);}
+ // captions
+ capEls.forEach(({d,c})=>{const v=vis(t,c[0],c[1]);if(v.o<.005){d.style.display='none';return;}d.style.display='';const w=d.offsetWidth;d.style.left=(c[6]=='c'?c[3]-w/2:c[3])+'px';d.style.top=c[4]+'px';applyVis(d,v);});
+ // command bar
+ {let o=0,b=0,dy=0;for(const[a,z]of BAR.vis){const v=vis(t,a,z,.18);if(v.o>o){o=v.o;b=v.b;dy=v.dy;}}
+  if(o<.005)bar.style.display='none';else{bar.style.display='';bar.style.opacity=o;bar.style.filter=b>.05?`blur(${b}px)`:'none';bar.style.transform=`translate(${(BAR.x.at(t)-410).toFixed(1)}px,${(908+dy*2).toFixed(1)}px)`;
+   let txt='',ph=true;for(const[t0,s,cps,send]of TYPE){if(t>=t0-.6&&t<send){const n=clamp(Math.floor((t-t0)*cps),0,s.length);txt=s.slice(0,n);ph=false;}}
+   const caret=(Math.floor(t*2.5)%2===0)?'<span style="color:var(--ak);font-weight:300">|</span>':'<span style="opacity:0">|</span>';
+   btxt.innerHTML=ph?'<span style="color:#a39b93">Zapytaj Ogara…</span>':(txt.replace('#fizyka','<span style="color:var(--akc)">#fizyka</span>')+caret);
+   let pr=1;for(const[, , ,send]of TYPE)pr-=.12*Math.exp(-Math.pow((t-send)/.06,2));bsend.style.transform=`scale(${pr.toFixed(3)})`;}}
+ drawCursor(CU,t,'#1d1a17');drawCursor(CO,t,'#F2683A');
+}
+window.seek=seek;window.M=M;window.DUR=DUR;
+M.cues.sort((a,b)=>a.t-b.t);
+document.fonts.ready.then(()=>{seek(0);window.READY=true;});
+</script></body></html>

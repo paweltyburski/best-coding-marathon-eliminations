@@ -8,6 +8,11 @@ Ogarniacz liczy, co jest naprawdę pilne, rozkłada pracę na tydzień tak, żeb
 jednego dnia, a asystent **Ogar** (pies tropiący terminy) rozumie polecenia pisane jak do kumpla:
 „kolokwium z fizyki w czwartek pilne”.
 
+## Prezentacja (film, 66 s)
+
+[`2_FILM_PROMOCYJNY/ogarniacz_launch_video.mp4`](2_FILM_PROMOCYJNY/ogarniacz_launch_video.mp4): co umie aplikacja i co dodaliśmy od siebie.
+Źródła filmu (HTML + animacje, render w Playwright, muzyka generowana lokalnie): `2_FILM_PROMOCYJNY/zrodla_filmu/`.
+
 ## Jak uruchomić
 
 Wymagany Rust (stabilny, `rustup` z https://rustup.rs).
@@ -104,7 +109,7 @@ skróty klawiszowe (`n` nowe zadanie, `/` czat), autozapis na dysk.
   src/asystent.rs  Ogar: trait Mozg + implementacja regułowa (intencje, daty po polsku)
   static/          front: HTML + CSS + czysty JS (bez frameworków), wkompilowany w binarkę
   przyklady/       20 przykładowych zadań
-2_FILM_PROMOCYJNY/ materiały do 2-minutowej prezentacji
+2_FILM_PROMOCYJNY/ launch video i jego źródła
 ```
 
 API: `GET/POST /api/zadania`, `PUT/DELETE /api/zadania/{id}`, `PATCH /api/zadania/{id}/przelacz`,

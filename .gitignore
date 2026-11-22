@@ -16,3 +16,6 @@
 
 # treść zadania od organizatora (nie publikujemy)
 *.docx
+
+# gotowy film i jego źródła trafiają do repo
+!2_FILM_PROMOCYJNY/ogarniacz_launch_video.mp4
