@@ -805,7 +805,7 @@ fn co_teraz(plik: &Plik, dzis: NaiveDate) -> Odpowiedz {
     if top.len() > 1 {
         t.push_str("\nPotem:");
         for s in &top[1..] {
-            t.push_str(&format!("\n• **{}** ({})", s.tytul, s.dlaczego));
+            t.push_str(&format!("\n• **{}**: {}", s.tytul, s.dlaczego));
         }
     }
     t.push_str("\nUstaw 25 minut skupienia i jedziesz. Resztą się nie przejmuj, pilnuję.");
@@ -928,7 +928,7 @@ fn tryb_ratunkowy(plik: &Plik, dzis: NaiveDate) -> Odpowiedz {
     let r = smart::ranking(&plik.zadania, dzis);
     let top: Vec<_> = r.iter().take(3).collect();
     let reszta = r.len().saturating_sub(3);
-    let lista: Vec<String> = top.iter().enumerate().map(|(i, s)| format!("{}. **{}** ({})", i + 1, s.tytul, s.dlaczego)).collect();
+    let lista: Vec<String> = top.iter().enumerate().map(|(i, s)| format!("{}. **{}**: {}", i + 1, s.tytul, s.dlaczego)).collect();
     Odpowiedz {
         tekst: format!(
             "Spokojnie, ogarniemy to razem 🐕 Tryb ratunkowy:\nWeź trzy wdechy. Teraz liczą się tylko te 3 rzeczy:\n{}\nPozostałe {} {} poczekają, nikt się nie obrazi. Zacznij od pierwszej, 25 minut, bez telefonu.",

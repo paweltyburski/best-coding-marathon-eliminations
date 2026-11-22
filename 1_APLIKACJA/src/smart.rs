@@ -17,7 +17,7 @@ pub fn opis_terminu(z: &Zadanie, dzis: NaiveDate) -> String {
         Some(-1) => "wczoraj minął termin".into(),
         Some(0) => "dziś".into(),
         Some(1) => "jutro".into(),
-        Some(d) if d < 7 => format!("{} ({} dni)", nazwa_dnia(z.termin.unwrap().weekday()), d),
+        Some(d) if d < 7 => nazwa_dnia(z.termin.unwrap().weekday()).to_string(),
         Some(d) => format!("za {} dni", d),
     }
 }
@@ -62,14 +62,14 @@ pub fn pilnosc(z: &Zadanie, dzis: NaiveDate) -> i64 {
 
 /// Krótkie, ludzkie uzasadnienie wyniku.
 pub fn dlaczego(z: &Zadanie, dzis: NaiveDate) -> String {
-    let t = opis_terminu(z, dzis);
     let p = z.priorytet.nazwa();
     match dni_do(z, dzis) {
-        Some(d) if d < 0 => format!("zaległe ({t}), priorytet {p}"),
+        Some(d) if d < 0 => format!("{}, priorytet {p}", opis_terminu(z, dzis)),
         Some(0) => format!("termin dziś, priorytet {p}"),
-        Some(d) if d <= 3 => format!("termin blisko ({t}), priorytet {p}"),
+        Some(1) => format!("termin jutro, priorytet {p}"),
+        Some(d) if d < 7 => format!("termin za {d} dni ({}), priorytet {p}", nazwa_dnia(z.termin.unwrap().weekday())),
+        Some(d) => format!("termin za {d} dni, priorytet {p}"),
         None => format!("bez terminu, priorytet {p}"),
-        _ => format!("{t}, priorytet {p}"),
     }
 }
 
