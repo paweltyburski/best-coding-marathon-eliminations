@@ -1,0 +1,25 @@
+{
+  "wersja": 1,
+  "zadania": [
+    { "id": 1, "tytul": "Kolokwium z sieci komputerowych", "opis": "Rozdziały 3–5", "termin": "2026-11-18", "priorytet": "wysoki", "wykonane": true, "tagi": ["studia"] },
+    { "id": 2, "tytul": "Sprawozdanie z fizyki: wahadło", "opis": "Wykresy + niepewności pomiarowe", "termin": "2026-11-20", "priorytet": "sredni", "wykonane": false, "tagi": ["studia", "fizyka"] },
+    { "id": 3, "tytul": "Oddać książki do biblioteki", "opis": "", "termin": "2026-11-21", "priorytet": "niski", "wykonane": false, "tagi": [] },
+    { "id": 4, "tytul": "Zadania z analizy matematycznej, lista 6", "opis": "Całki niewłaściwe, zad. 1–12", "termin": "2026-11-22", "priorytet": "sredni", "wykonane": false, "tagi": ["studia", "matma"] },
+    { "id": 5, "tytul": "Zakupy na tydzień", "opis": "Makaron, jajka, kawa", "termin": "2026-11-22", "priorytet": "niski", "wykonane": false, "tagi": ["dom"] },
+    { "id": 6, "tytul": "Kolokwium z algebry liniowej", "opis": "Macierze, wyznaczniki, układy równań", "termin": "2026-11-24", "priorytet": "wysoki", "wykonane": false, "tagi": ["studia", "matma"] },
+    { "id": 7, "tytul": "Laboratorium z programowania: lista 5", "opis": "Wskaźniki i struktury w C", "termin": "2026-11-24", "priorytet": "sredni", "wykonane": false, "tagi": ["studia"] },
+    { "id": 8, "tytul": "Zapłacić czynsz", "opis": "Przelew do właściciela", "termin": "2026-11-25", "priorytet": "wysoki", "wykonane": false, "tagi": ["dom"] },
+    { "id": 9, "tytul": "Projekt zespołowy z baz danych", "opis": "Schemat ERD + zapytania SQL, oddanie przez Moodle", "termin": "2026-11-27", "priorytet": "wysoki", "wykonane": false, "tagi": ["studia"] },
+    { "id": 10, "tytul": "Siłownia", "opis": "Nogi + core", "termin": "2026-11-23", "priorytet": "niski", "wykonane": false, "tagi": ["zdrowie"] },
+    { "id": 11, "tytul": "Prezentacja z ekonomii", "opis": "10 slajdów o inflacji, w parze z Kasią", "termin": "2026-11-26", "priorytet": "sredni", "wykonane": false, "tagi": ["studia"] },
+    { "id": 12, "tytul": "Zmiana w kawiarni", "opis": "16:00–22:00", "termin": "2026-11-28", "priorytet": "sredni", "wykonane": false, "tagi": ["praca"] },
+    { "id": 13, "tytul": "Egzamin z angielskiego B2", "opis": "Writing + speaking", "termin": "2026-12-04", "priorytet": "wysoki", "wykonane": false, "tagi": ["studia", "angielski"] },
+    { "id": 14, "tytul": "Wysłać CV na staż", "opis": "Junior developer, termin rekrutacji do końca miesiąca", "termin": "2026-11-30", "priorytet": "sredni", "wykonane": false, "tagi": ["praca"] },
+    { "id": 15, "tytul": "Pranie", "opis": "", "termin": null, "priorytet": "niski", "wykonane": false, "tagi": ["dom"] },
+    { "id": 16, "tytul": "Zapisać się na WF", "opis": "Zapisy w USOS", "termin": "2026-11-19", "priorytet": "wysoki", "wykonane": true, "tagi": ["studia"] },
+    { "id": 17, "tytul": "Dentysta", "opis": "Kontrola, ul. Grunwaldzka", "termin": "2026-12-02", "priorytet": "sredni", "wykonane": false, "tagi": ["zdrowie"] },
+    { "id": 18, "tytul": "Przeczytać artykuł do seminarium", "opis": "", "termin": null, "priorytet": "sredni", "wykonane": false, "tagi": ["studia"] },
+    { "id": 19, "tytul": "Kupić prezent dla mamy", "opis": "Urodziny 5 grudnia", "termin": "2026-12-03", "priorytet": "sredni", "wykonane": false, "tagi": [] },
+    { "id": 20, "tytul": "Ogarnąć notatki z wykładu z fizyki", "opis": "Przepisać na czysto wykłady 6–8", "termin": null, "priorytet": "niski", "wykonane": true, "tagi": ["studia", "fizyka"] }
+  ]
+}

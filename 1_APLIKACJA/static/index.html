@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ogarniacz · planner, który ogarnia za ciebie</title>
+  <link rel="icon" href="/ogar.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img src="/ogar.svg" alt="" class="logo">
+      <div>
+        <h1>Ogarniacz</h1>
+        <p class="data" id="dzisiaj">…</p>
+      </div>
+    </div>
+    <div class="postep" title="Postęp całej listy">
+      <div class="pasek"><span id="postep-pasek"></span></div>
+      <span id="postep-tekst">0%</span>
+    </div>
+    <div class="akcje">
+      <label class="btn ghost" title="Wczytaj zadania z pliku JSON">
+        <input type="file" id="plik-import" accept=".json,application/json" hidden>
+        ⬆ Wczytaj JSON
+      </label>
+      <a class="btn ghost" href="/api/eksport" download="zadania.json" title="Zapisz zadania do pliku JSON">⬇ Zapisz JSON</a>
+      <button class="btn primary" id="btn-nowe">+ Nowe zadanie</button>
+      <button class="btn ghost czat-toggle" id="btn-czat" title="Ogar">🐕</button>
+    </div>
+  </header>
+
+  <div class="uklad">
+    <nav class="boczny">
+      <div class="widoki" id="widoki">
+        <button data-widok="teraz" class="aktywny"><span>⚡ Teraz</span><b id="licz-teraz"></b></button>
+        <button data-widok="dzis"><span>☀️ Na dziś</span><b id="licz-dzis"></b></button>
+        <button data-widok="zalegle"><span>🔥 Po terminie</span><b id="licz-zalegle"></b></button>
+        <button data-widok="tydzien"><span>🗓 Plan tygodnia</span></button>
+        <button data-widok="wszystkie"><span>📋 Wszystkie</span><b id="licz-wszystkie"></b></button>
+        <button data-widok="zrobione"><span>✅ Zrobione</span><b id="licz-zrobione"></b></button>
+        <button data-widok="statystyki"><span>📊 Statystyki</span></button>
+      </div>
+      <h3>Tagi</h3>
+      <div class="tagi-filtr" id="tagi-filtr"></div>
+      <button class="link" id="btn-przyklady" title="Przywróć 20 przykładowych zadań">↺ przykładowe dane</button>
+    </nav>
+
+    <main class="glowny">
+      <div id="ostrzezenia"></div>
+
+      <form class="szybkie" id="szybkie">
+        <span class="szybkie-ikona">✨</span>
+        <input id="szybkie-pole" autocomplete="off"
+          placeholder="Napisz jak do kumpla: „kolokwium z fizyki w czwartek pilne #studia”">
+        <button class="btn primary" type="submit">Dodaj</button>
+      </form>
+
+      <section id="widok-lista">
+        <div class="pasek-narzedzi">
+          <h2 id="tytul-widoku">Teraz</h2>
+          <div class="narzedzia">
+            <input type="search" id="szukaj" placeholder="Szukaj…">
+            <select id="sortuj" title="Sortowanie">
+              <option value="smart">Sortuj: pilność (smart)</option>
+              <option value="termin">Sortuj: termin</option>
+              <option value="priorytet">Sortuj: priorytet</option>
+              <option value="tytul">Sortuj: A–Z</option>
+            </select>
+          </div>
+        </div>
+        <div id="hero"></div>
+        <ul class="lista" id="lista"></ul>
+        <p class="pusto" id="pusto" hidden>Nic tu nie ma. Ogar śpi spokojnie 🐕💤</p>
+      </section>
+
+      <section id="widok-tydzien" hidden>
+        <div class="pasek-narzedzi">
+          <h2>Plan tygodnia</h2>
+          <p class="pod">Ogar rozkłada pracę przed terminami: wysoki priorytet 2 dni wcześniej, maks. 3 rzeczy dziennie.</p>
+        </div>
+        <div class="tydzien" id="tydzien"></div>
+      </section>
+
+      <section id="widok-statystyki" hidden>
+        <div class="pasek-narzedzi"><h2>Statystyki</h2></div>
+        <div class="staty" id="staty"></div>
+      </section>
+    </main>
+
+    <aside class="czat" id="czat">
+      <div class="czat-glowa">
+        <img src="/ogar.svg" alt="" class="logo maly">
+        <div>
+          <strong>Ogar</strong>
+          <span class="pod">asystent AI (atrapa) · tropi terminy</span>
+        </div>
+        <button class="zamknij" id="czat-zamknij" title="Zamknij">×</button>
+      </div>
+      <div class="wiadomosci" id="wiadomosci"></div>
+      <div class="sugestie" id="sugestie"></div>
+      <form class="czat-pole" id="czat-form">
+        <input id="czat-input" autocomplete="off" placeholder="Zapytaj Ogara…">
+        <button class="btn primary" type="submit">➤</button>
+      </form>
+    </aside>
+  </div>
+
+  <dialog id="okno">
+    <form method="dialog" id="formularz">
+      <h2 id="okno-tytul">Nowe zadanie</h2>
+      <label>Tytuł
+        <input name="tytul" required maxlength="200" placeholder="np. Kolokwium z algebry">
+      </label>
+      <label>Opis
+        <textarea name="opis" rows="2" placeholder="opcjonalnie"></textarea>
+      </label>
+      <div class="rzad">
+        <label>Termin
+          <input type="date" name="termin">
+        </label>
+        <div class="szybkie-daty">
+          <button type="button" data-za="0">dziś</button>
+          <button type="button" data-za="1">jutro</button>
+          <button type="button" data-za="7">za tydzień</button>
+          <button type="button" data-za="">brak</button>
+        </div>
+      </div>
+      <fieldset class="prio">
+        <legend>Priorytet</legend>
+        <label><input type="radio" name="priorytet" value="niski"> niski</label>
+        <label><input type="radio" name="priorytet" value="sredni" checked> średni</label>
+        <label><input type="radio" name="priorytet" value="wysoki"> wysoki</label>
+      </fieldset>
+      <label>Tagi <small>(po przecinku)</small>
+        <input name="tagi" placeholder="studia, matma">
+      </label>
+      <label class="check"><input type="checkbox" name="wykonane"> zrobione</label>
+      <div class="okno-akcje">
+        <button type="button" class="btn danger" id="btn-usun-okno" hidden>Usuń</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" id="btn-anuluj">Anuluj</button>
+        <button type="submit" class="btn primary" value="ok">Zapisz</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>

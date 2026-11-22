@@ -1,0 +1,18 @@
+# system
+.DS_Store
+
+# Rust
+1_APLIKACJA/target/
+1_APLIKACJA/dane/
+
+# pliki robocze filmów (rendery, klony skilli, node_modules, klatki)
+2_FILM_PROMOCYJNY/_robocze/
+2_FILM_PROMOCYJNY/**/node_modules/
+2_FILM_PROMOCYJNY/**/renders/
+2_FILM_PROMOCYJNY/**/out/
+2_FILM_PROMOCYJNY/**/*.mp4
+2_FILM_PROMOCYJNY/**/.hyperframes/
+*.log
+
+# treść zadania od organizatora (nie publikujemy)
+*.docx
