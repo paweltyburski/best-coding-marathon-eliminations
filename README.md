@@ -55,7 +55,7 @@ Wymagania z zadania, wszystkie:
    Dlaczego: student nie potrzebuje widzieć wszystkiego, potrzebuje wiedzieć, od czego zacząć.
 
 2. **Plan tygodnia, który rozkłada pracę PRZED terminem.** Zadanie o wysokim priorytecie ląduje
-   2 dni przed terminem, średnie dzień wcześniej, maksymalnie 3 rzeczy dziennie, nadmiar idzie
+   2 dni przed terminem, średnie dzień wcześniej, do 3 rzeczy dziennie (jeśli terminy na to pozwalają), nadmiar idzie
    na wcześniejsze wolne dni. Dlaczego: kolokwium we wtorek trzeba robić w niedzielę, nie we wtorek.
 
 3. **Ostrzeżenia o kumulacji.** „Wtorek 24.11 kumulacja: 2 terminy naraz. Zacznij kolokwium wcześniej.”

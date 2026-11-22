@@ -843,7 +843,7 @@ fn plan(plik: &Plik, dzis: NaiveDate) -> Odpowiedz {
         mysli: vec![
             "Intencja: plan tygodnia".into(),
             "Każde zadanie stawiam przed terminem (wysoki priorytet 2 dni wcześniej)".into(),
-            "Maks. 3 rzeczy dziennie, nadmiar przesuwam na wcześniejsze dni".into(),
+            "Do 3 rzeczy dziennie, nadmiar przesuwam na wcześniejsze wolne dni".into(),
         ],
         sugestie: vec!["Co teraz?".into(), "Pokaż zaległe".into()],
         ..Default::default()
